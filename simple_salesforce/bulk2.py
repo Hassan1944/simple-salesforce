@@ -1326,3 +1326,90 @@ class SFBulk2Type:
             'failedRecords': list(failed_records),
             'unprocessedRecords': list(unprocessed_records)
             }
+    
+class Querydatafrom_json_csv: 
+    def __init__(self, json_data): 
+        self.json_data = json_data 
+        self.records = None 
+        self.all_fields = set() 
+        self.sorted_fields = None 
+ 
+    def load_data(self): 
+        """ 
+        Load JSON data and parse it into records. 
+        """ 
+        try: 
+            self.records = json.loads(self.json_data) 
+        except json.JSONDecodeError: 
+            print("Invalid JSON format.") 
+            return False 
+         
+        if not isinstance(self.records, list): 
+            print("Expected a list of records.") 
+            return False 
+         
+        return True 
+ 
+    def _update_fields(self, record, prefix=''): 
+        """ 
+        Recursively update all_fields with field names from the record. 
+        """ 
+        for key, value in record.items(): 
+            if isinstance(value, dict): 
+                self._update_fields(value, prefix + key + '.') 
+            else: 
+                self.all_fields.add(prefix + key) 
+ 
+    def extract_fields(self): 
+        """ 
+        Extract all fields from the records without hardcoding column names. 
+        """ 
+        if not self.records: 
+            if not self.load_data(): 
+                return False 
+         
+        for record in self.records: 
+            self._update_fields(record) 
+         
+        self.sorted_fields = sorted(self.all_fields) 
+ 
+        return True 
+ 
+    def process_record(self, record): 
+        """ 
+        Process a single record and return a CSV string of values. 
+        """ 
+        if not self.sorted_fields: 
+            if not self.extract_fields(): 
+                return None 
+         
+        row_values = [] 
+        for field in self.sorted_fields: 
+            keys = field.split('.') 
+            current = record 
+            for key in keys: 
+                if isinstance(current, dict) and key in current: 
+                    current = current[key] 
+                else: 
+                    current = None 
+                    break 
+            row_values.append(str(current) if current is not None else '') 
+         
+        return ','.join(row_values) 
+ 
+    def process_all_records(self): 
+        """ 
+        Process all records and print headers followed by each record's CSV values. 
+        """ 
+        if not self.sorted_fields: 
+            if not self.extract_fields(): 
+                return 
+         
+        # Print headers 
+        headers = ','.join(self.sorted_fields) 
+        print(headers) 
+ 
+        # Process each record 
+        for record in self.records: 
+            row = self.process_record(record) 
+            print(row)
